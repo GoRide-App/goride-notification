@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using GoRide.Notification.Data;
+using GoRide.Notification.Events.Consumers;
+using GoRide.Notification.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,10 +10,55 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ---- Database (ADO.NET connection factory — see Data/MySqlConnectionFactory.cs) ----
+// ---- Database (ADO.NET connection factory + Entity Framework Core DbContext) ----
 builder.Services.AddScoped<IDbConnectionFactory, MySqlConnectionFactory>();
 
-// ---- CORS: allow the Next.js frontend (local dev + Vercel-hosted) to call this API ----
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    var host = MySqlConnectionFactory.GetConfigValue(builder.Configuration, "Db:Host", "DB_HOST") ?? "localhost";
+    var port = MySqlConnectionFactory.GetConfigValue(builder.Configuration, "Db:Port", "DB_PORT") ?? "3306";
+    var dbName = MySqlConnectionFactory.GetConfigValue(builder.Configuration, "Db:Database", "DB_DATABASE") ?? "notification_db";
+    var user = MySqlConnectionFactory.GetConfigValue(builder.Configuration, "Db:User", "DB_USER") ?? "root";
+    var pass = MySqlConnectionFactory.GetConfigValue(builder.Configuration, "Db:Password", "DB_PASSWORD") ?? "password";
+
+    connectionString = $"Server={host};Port={port};Database={dbName};Uid={user};Pwd={pass};";
+}
+
+// Register AppDbContext with MySql / Pomelo (or In-Memory fallback if configured)
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("NotificationTestDb"));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+    {
+        try
+        {
+            options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+        }
+        catch
+        {
+            // Fallback for environment setup prior to MySQL migration initialization
+            options.UseInMemoryDatabase("NotificationDevDb");
+        }
+    });
+}
+
+// ---- Application Services DI ----
+builder.Services.AddScoped<IPreferenceService, PreferenceService>();
+builder.Services.AddScoped<IPushSender, FcmPushSender>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
+
+// ---- Kafka Consumer Hosted Background Service ----
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<TripEventConsumerService>();
+}
+
+// ---- CORS configuration for Next.js Frontend ----
 var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? Array.Empty<string>();
 
@@ -40,7 +88,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// ---- Swagger UI (dev only — don't expose this publicly in production) ----
+// Auto-create database schema if in development and using in-memory or raw DB
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        db.Database.EnsureCreated();
+    }
+    catch
+    {
+        // Connection will be established when DB server is active
+    }
+}
+
+// ---- Swagger UI (dev only) ----
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -53,6 +115,5 @@ app.MapControllers();
 
 app.Run();
 
-// Exposes the generated Program class so integration tests can spin up this app
-// in-memory via WebApplicationFactory<Program> later, without any extra setup.
+// Exposes generated Program class for WebApplicationFactory integration testing
 public partial class Program { }
