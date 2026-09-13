@@ -76,8 +76,11 @@ public class TripEventConsumerService : BackgroundService
                         continue;
                     }
 
-                    // Only handle DRIVER_ACCEPTED events for SCRUM-127
-                    if (!string.Equals(evt.EventType, "DRIVER_ACCEPTED", StringComparison.OrdinalIgnoreCase))
+                    bool isDriverAccepted = string.Equals(evt.EventType, "DRIVER_ACCEPTED", StringComparison.OrdinalIgnoreCase);
+                    bool isDriverArrived = string.Equals(evt.EventType, "DRIVER_ARRIVED", StringComparison.OrdinalIgnoreCase);
+
+                    // Only handle supported trip notification events
+                    if (!isDriverAccepted && !isDriverArrived)
                     {
                         _consumer.Commit(result);
                         continue;
@@ -95,9 +98,16 @@ public class TripEventConsumerService : BackgroundService
                         continue;
                     }
 
-                    // Dispatch notification to rider
+                    // Dispatch notification to rider based on event type
                     var dispatcher = scope.ServiceProvider.GetRequiredService<INotificationDispatcher>();
-                    await dispatcher.DispatchDriverAccepted(evt, stoppingToken);
+                    if (isDriverAccepted)
+                    {
+                        await dispatcher.DispatchDriverAccepted(evt, stoppingToken);
+                    }
+                    else if (isDriverArrived)
+                    {
+                        await dispatcher.DispatchDriverArrived(evt, stoppingToken);
+                    }
 
                     // Mark event as processed
                     db.ProcessedEvents.Add(new ProcessedEvent
