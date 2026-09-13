@@ -50,6 +50,7 @@ else
 // ---- Application Services DI ----
 builder.Services.AddScoped<IPreferenceService, PreferenceService>();
 builder.Services.AddScoped<IPushSender, FcmPushSender>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
 
 // ---- Kafka Consumer Hosted Background Service ----

@@ -28,10 +28,17 @@ public interface INotificationDispatcher
     /// <param name="evt">The TRIP_COMPLETED domain event payload.</param>
     /// <param name="ct">Cancellation token.</param>
     Task DispatchTripCompleted(TripEvent evt, CancellationToken ct);
+
+    /// <summary>
+    /// Dispatches payment confirmation notifications over enabled channels (Push & Email) with latency tracking and delivery logging.
+    /// </summary>
+    /// <param name="evt">The PAYMENT_CONFIRMED domain event payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task DispatchPaymentConfirmation(TripEvent evt, CancellationToken ct);
 }
 
 /// <summary>
-/// Retrieves rider notification preferences or defaults to push-only when unspecified.
+/// Retrieves rider notification preferences or defaults to push and email enabled for critical payment alerts.
 /// </summary>
 public interface IPreferenceService
 {
@@ -57,4 +64,19 @@ public interface IPushSender
     /// <param name="body">Notification message body.</param>
     /// <param name="ct">Cancellation token.</param>
     Task Send(string riderId, string title, string body, CancellationToken ct);
+}
+
+/// <summary>
+/// Contract for sending email notifications to riders.
+/// </summary>
+public interface IEmailSender
+{
+    /// <summary>
+    /// Sends an email notification to the specified recipient.
+    /// </summary>
+    /// <param name="recipientEmail">Target recipient email address.</param>
+    /// <param name="subject">Email subject line.</param>
+    /// <param name="body">Email message body content.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task SendEmail(string recipientEmail, string subject, string body, CancellationToken ct);
 }

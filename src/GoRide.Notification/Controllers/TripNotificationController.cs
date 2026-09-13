@@ -148,6 +148,75 @@ public class TripNotificationController : ControllerBase
             nextState = "TRIP_COMPLETED"
         });
     }
+
+    /// <summary>
+    /// Triggers payment confirmation notification to rider over push and email channels.
+    /// Scenario 1: Sent to enabled channels within target latency upon PAYMENT_CONFIRMED event.
+    /// Scenario 4: Default configuration uses both push and email channels for payment receipts.
+    /// </summary>
+    /// <param name="request">Payment notification request payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("payment-confirmed")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> TriggerPaymentConfirmed([FromBody] PaymentConfirmedNotificationRequest request, CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var evt = new TripEvent
+        {
+            EventId = string.IsNullOrWhiteSpace(request.EventId) ? $"evt-pay-{Guid.NewGuid():N}" : request.EventId,
+            EventType = "PAYMENT_CONFIRMED",
+            TripId = request.TripId,
+            RiderId = request.RiderId,
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                Fare = request.Fare
+            }
+        };
+
+        await _dispatcher.DispatchPaymentConfirmation(evt, ct);
+
+        return Ok(new
+        {
+            status = "PAYMENT_CONFIRMED",
+            message = "Payment confirmation notifications processed for push and email channels",
+            tripId = request.TripId,
+            channels = new[] { "push", "email" }
+        });
+    }
+}
+
+/// <summary>
+/// Request DTO for triggering payment confirmation notification.
+/// </summary>
+public class PaymentConfirmedNotificationRequest
+{
+    /// <summary>
+    /// Event identifier (optional, auto-generated if omitted).
+    /// </summary>
+    public string? EventId { get; set; }
+
+    /// <summary>
+    /// Unique trip identifier.
+    /// </summary>
+    [Required]
+    public string TripId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique rider identifier.
+    /// </summary>
+    [Required]
+    public string RiderId { get; set; } = default!;
+
+    /// <summary>
+    /// Total fare amount confirmed for payment.
+    /// </summary>
+    public decimal Fare { get; set; }
 }
 
 /// <summary>
