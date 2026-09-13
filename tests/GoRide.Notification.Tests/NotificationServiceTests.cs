@@ -12,7 +12,7 @@ namespace GoRide.Notification.Tests;
 
 /// <summary>
 /// Unit tests for NotificationDispatcher, PreferenceService, TripNotificationController, and idempotency logic.
-/// Verifies SCRUM-127 and SCRUM-128 driver notification requirements.
+/// Verifies SCRUM-127, SCRUM-128, and SCRUM-129 driver notification requirements.
 /// </summary>
 public class NotificationServiceTests
 {
@@ -147,6 +147,46 @@ public class NotificationServiceTests
     }
 
     [Fact]
+    public async Task NotificationDispatcher_DispatchTripCompleted_SendsPushAndLogsDeliveryOutcome()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-completed-300",
+            EventType = "TRIP_COMPLETED",
+            TripId = "trip-300",
+            RiderId = "rider-777",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                DriverName = "Kasun Kalhara",
+                VehicleType = "TUKTUK",
+                VehiclePlate = "WP-AB-9999",
+                Fare = 450.00m
+            }
+        };
+
+        // Act
+        await dispatcher.DispatchTripCompleted(evt, CancellationToken.None);
+
+        // Assert
+        var log = await db.NotificationLogs.FirstOrDefaultAsync(l => l.EventId == "evt-completed-300");
+        Assert.NotNull(log);
+        Assert.Equal("rider-777", log.RiderId);
+        Assert.Equal("push", log.Channel);
+        Assert.Equal("sent", log.Status);
+    }
+
+    [Fact]
     public async Task TripNotificationController_TriggerDriverArrived_ReturnsOk_WhenValidState()
     {
         // Arrange
@@ -202,6 +242,70 @@ public class NotificationServiceTests
 
         // Act
         var result = await controller.TriggerDriverArrived(request);
+
+        // Assert
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        Assert.Equal(409, conflictResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task TripNotificationController_TriggerTripCompleted_ReturnsOk_WhenValidState()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var controller = new TripNotificationController(dispatcher, NullLogger<TripNotificationController>.Instance);
+
+        var request = new TripCompletedNotificationRequest
+        {
+            TripId = "trip-comp-valid-1",
+            RiderId = "rider-222",
+            DriverName = "Sunil Shantha",
+            Fare = 520.00m,
+            CurrentState = "TRIP_IN_PROGRESS"
+        };
+
+        // Act
+        var result = await controller.TriggerTripCompleted(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task TripNotificationController_TriggerTripCompleted_ReturnsConflict_WhenInvalidState()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var controller = new TripNotificationController(dispatcher, NullLogger<TripNotificationController>.Instance);
+
+        var request = new TripCompletedNotificationRequest
+        {
+            TripId = "trip-comp-invalid-1",
+            RiderId = "rider-222",
+            DriverName = "Sunil Shantha",
+            Fare = 520.00m,
+            CurrentState = "SEARCHING_DRIVER" // Invalid state for completed transition
+        };
+
+        // Act
+        var result = await controller.TriggerTripCompleted(request);
 
         // Assert
         var conflictResult = Assert.IsType<ConflictObjectResult>(result);
