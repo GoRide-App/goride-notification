@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using GoRide.Notification.Controllers;
@@ -12,7 +13,7 @@ namespace GoRide.Notification.Tests;
 
 /// <summary>
 /// Unit tests for NotificationDispatcher, PreferenceService, TripNotificationController, and idempotency logic.
-/// Verifies SCRUM-127, SCRUM-128, and SCRUM-129 driver notification requirements.
+/// Verifies SCRUM-127, SCRUM-128, SCRUM-129, and SCRUM-130 notification requirements.
 /// </summary>
 public class NotificationServiceTests
 {
@@ -184,6 +185,119 @@ public class NotificationServiceTests
         Assert.Equal("rider-777", log.RiderId);
         Assert.Equal("push", log.Channel);
         Assert.Equal("sent", log.Status);
+    }
+
+    [Fact]
+    public async Task NotificationDispatcher_DispatchPaymentConfirmation_DispatchesPushAndEmail_Scenario1And4()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        db.NotificationPreferences.Add(new NotificationPreference
+        {
+            RiderId = "rider-pay-1",
+            PushEnabled = true,
+            EmailEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var emailSender = new SmtpEmailSender(new ConfigurationBuilder().Build(), NullLogger<SmtpEmailSender>.Instance);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance,
+            emailSender);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-pay-100",
+            EventType = "PAYMENT_CONFIRMED",
+            TripId = "trip-pay-100",
+            RiderId = "rider-pay-1",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload { Fare = 650.00m }
+        };
+
+        // Act
+        await dispatcher.DispatchPaymentConfirmation(evt, CancellationToken.None);
+
+        // Assert
+        var logs = await db.NotificationLogs.Where(l => l.EventId == "evt-pay-100").ToListAsync();
+        Assert.Equal(2, logs.Count);
+        Assert.Contains(logs, l => l.Channel == "push" && l.Status == "sent");
+        Assert.Contains(logs, l => l.Channel == "email" && l.Status == "sent");
+    }
+
+    [Fact]
+    public async Task NotificationDispatcher_DispatchPaymentConfirmation_SkipsDisabledChannels_Scenario2()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        db.NotificationPreferences.Add(new NotificationPreference
+        {
+            RiderId = "rider-disabled-1",
+            PushEnabled = false,
+            EmailEnabled = false
+        });
+        await db.SaveChangesAsync();
+
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-pay-disabled",
+            EventType = "PAYMENT_CONFIRMED",
+            TripId = "trip-pay-disabled",
+            RiderId = "rider-disabled-1",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload { Fare = 300.00m }
+        };
+
+        // Act
+        await dispatcher.DispatchPaymentConfirmation(evt, CancellationToken.None);
+
+        // Assert
+        var logs = await db.NotificationLogs.Where(l => l.EventId == "evt-pay-disabled").ToListAsync();
+        Assert.Equal(2, logs.Count);
+        Assert.All(logs, l => Assert.Equal("skipped", l.Status));
+    }
+
+    [Fact]
+    public async Task TripNotificationController_TriggerPaymentConfirmed_ReturnsOk()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var controller = new TripNotificationController(dispatcher, NullLogger<TripNotificationController>.Instance);
+
+        var request = new PaymentConfirmedNotificationRequest
+        {
+            TripId = "trip-pay-ctrl-1",
+            RiderId = "rider-pay-ctrl",
+            Fare = 850.00m
+        };
+
+        // Act
+        var result = await controller.TriggerPaymentConfirmed(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
     }
 
     [Fact]
