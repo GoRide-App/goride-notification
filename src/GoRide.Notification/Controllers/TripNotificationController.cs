@@ -84,6 +84,119 @@ public class TripNotificationController : ControllerBase
             nextState = "DRIVER_ARRIVED"
         });
     }
+
+    /// <summary>
+    /// Triggers ride completion notification after validating the trip state machine transition.
+    /// Valid states for completion trigger: TRIP_IN_PROGRESS, DRIVER_ARRIVED, ARRIVED, PAYMENT_PENDING, PAID.
+    /// </summary>
+    /// <param name="request">Trip completed notification payload including current state.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>HTTP 200 OK on valid transition, HTTP 409 Conflict if state is invalid.</returns>
+    [HttpPost("completed")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> TriggerTripCompleted([FromBody] TripCompletedNotificationRequest request, CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        // Valid trip lifecycle states for triggering completion notification
+        var validStates = new[] { "TRIP_IN_PROGRESS", "DRIVER_ARRIVED", "ARRIVED", "PAYMENT_PENDING", "PAID" };
+        bool isValidState = Array.Exists(validStates, s => string.Equals(s, request.CurrentState, StringComparison.OrdinalIgnoreCase));
+
+        if (!isValidState)
+        {
+            _logger.LogWarning(
+                "Invalid transition rejected for trip {TripId}: current state '{State}' is invalid for trip completed trigger.",
+                request.TripId, request.CurrentState);
+
+            return Conflict(new
+            {
+                status = "Conflict",
+                message = $"Trip '{request.TripId}' is not in a valid state for trip completion notification. Current state: '{request.CurrentState}'.",
+                tripId = request.TripId,
+                currentState = request.CurrentState
+            });
+        }
+
+        var evt = new TripEvent
+        {
+            EventId = string.IsNullOrWhiteSpace(request.EventId) ? $"evt-completed-{Guid.NewGuid():N}" : request.EventId,
+            EventType = "TRIP_COMPLETED",
+            TripId = request.TripId,
+            RiderId = request.RiderId,
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                DriverName = request.DriverName ?? "Your driver",
+                VehicleType = request.VehicleType ?? "GoRide",
+                VehiclePlate = request.VehiclePlate ?? "",
+                Fare = request.Fare
+            }
+        };
+
+        await _dispatcher.DispatchTripCompleted(evt, ct);
+
+        return Ok(new
+        {
+            status = "TRIP_COMPLETED",
+            message = "Ride completion notification dispatched successfully",
+            tripId = request.TripId,
+            nextState = "TRIP_COMPLETED"
+        });
+    }
+}
+
+/// <summary>
+/// Request DTO for triggering ride completion notification.
+/// </summary>
+public class TripCompletedNotificationRequest
+{
+    /// <summary>
+    /// Event identifier (optional, auto-generated if omitted).
+    /// </summary>
+    public string? EventId { get; set; }
+
+    /// <summary>
+    /// Unique trip identifier.
+    /// </summary>
+    [Required]
+    public string TripId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique rider identifier receiving the notification.
+    /// </summary>
+    [Required]
+    public string RiderId { get; set; } = default!;
+
+    /// <summary>
+    /// Driver's display name.
+    /// </summary>
+    public string? DriverName { get; set; }
+
+    /// <summary>
+    /// Vehicle type string.
+    /// </summary>
+    public string? VehicleType { get; set; }
+
+    /// <summary>
+    /// Vehicle license plate number.
+    /// </summary>
+    public string? VehiclePlate { get; set; }
+
+    /// <summary>
+    /// Total fare amount for the completed trip.
+    /// </summary>
+    public decimal? Fare { get; set; }
+
+    /// <summary>
+    /// Current trip lifecycle state (e.g. TRIP_IN_PROGRESS, DRIVER_ARRIVED).
+    /// </summary>
+    [Required]
+    public string CurrentState { get; set; } = default!;
 }
 
 /// <summary>

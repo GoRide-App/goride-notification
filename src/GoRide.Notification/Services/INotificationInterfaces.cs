@@ -21,6 +21,13 @@ public interface INotificationDispatcher
     /// <param name="evt">The DRIVER_ARRIVED domain event payload.</param>
     /// <param name="ct">Cancellation token.</param>
     Task DispatchDriverArrived(TripEvent evt, CancellationToken ct);
+
+    /// <summary>
+    /// Dispatches a notification to the rider when their ride is completed.
+    /// </summary>
+    /// <param name="evt">The TRIP_COMPLETED domain event payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task DispatchTripCompleted(TripEvent evt, CancellationToken ct);
 }
 
 /// <summary>

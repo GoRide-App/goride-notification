@@ -78,9 +78,10 @@ public class TripEventConsumerService : BackgroundService
 
                     bool isDriverAccepted = string.Equals(evt.EventType, "DRIVER_ACCEPTED", StringComparison.OrdinalIgnoreCase);
                     bool isDriverArrived = string.Equals(evt.EventType, "DRIVER_ARRIVED", StringComparison.OrdinalIgnoreCase);
+                    bool isTripCompleted = string.Equals(evt.EventType, "TRIP_COMPLETED", StringComparison.OrdinalIgnoreCase);
 
                     // Only handle supported trip notification events
-                    if (!isDriverAccepted && !isDriverArrived)
+                    if (!isDriverAccepted && !isDriverArrived && !isTripCompleted)
                     {
                         _consumer.Commit(result);
                         continue;
@@ -107,6 +108,10 @@ public class TripEventConsumerService : BackgroundService
                     else if (isDriverArrived)
                     {
                         await dispatcher.DispatchDriverArrived(evt, stoppingToken);
+                    }
+                    else if (isTripCompleted)
+                    {
+                        await dispatcher.DispatchTripCompleted(evt, stoppingToken);
                     }
 
                     // Mark event as processed

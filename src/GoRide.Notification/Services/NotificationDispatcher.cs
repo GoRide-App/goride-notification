@@ -111,6 +111,49 @@ public class NotificationDispatcher : INotificationDispatcher
         }
     }
 
+    /// <summary>
+    /// Dispatches a ride completion notification to the rider.
+    /// Includes trip summary, driver name, fare details, measures latency, and logs delivery outcome.
+    /// </summary>
+    /// <param name="evt">Domain event containing rider ID, driver name, vehicle info, and fare details.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public async Task DispatchTripCompleted(TripEvent evt, CancellationToken ct)
+    {
+        // 1. Retrieve recipient preferences (defaults to push=true, email=false)
+        var prefs = await _preferences.GetOrDefault(evt.RiderId, ct);
+
+        // 2. Process push notification if enabled
+        if (prefs.PushEnabled)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            try
+            {
+                var driverName = string.IsNullOrWhiteSpace(evt.Payload?.DriverName) ? "Your driver" : evt.Payload.DriverName;
+                var fareText = evt.Payload?.Fare > 0 ? $" Total fare: LKR {evt.Payload.Fare:F2}." : "";
+
+                var title = "Ride Completed";
+                var body = $"Your trip with {driverName} has been completed.{fareText} Thank you for riding with GoRide!";
+
+                await _push.Send(evt.RiderId, title, body, ct);
+                stopwatch.Stop();
+
+                await LogDeliveryOutcome(evt, "push", "sent", (int)stopwatch.ElapsedMilliseconds, null, ct);
+                _logger.LogInformation("Ride completion notification successfully dispatched to rider {RiderId} via Push.", evt.RiderId);
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                await LogDeliveryOutcome(evt, "push", "failed", (int)stopwatch.ElapsedMilliseconds, ex.Message, ct);
+                _logger.LogError(ex, "Failed to dispatch ride completion notification to rider {RiderId}.", evt.RiderId);
+            }
+        }
+        else
+        {
+            await LogDeliveryOutcome(evt, "push", "skipped", 0, "Push notifications disabled in preferences", ct);
+        }
+    }
+
+
 
     /// <summary>
     /// Helper method to record notification delivery outcomes in the NotificationLogs database table.

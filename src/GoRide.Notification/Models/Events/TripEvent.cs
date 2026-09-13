@@ -72,4 +72,10 @@ public class TripEventPayload
     /// </summary>
     [JsonPropertyName("etaMinutes")]
     public int? EtaMinutes { get; set; }
+
+    /// <summary>
+    /// Final trip fare amount.
+    /// </summary>
+    [JsonPropertyName("fare")]
+    public decimal? Fare { get; set; }
 }
