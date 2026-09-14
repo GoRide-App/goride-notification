@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews every PR automatically. By default it only looks at PRs into
+# the default branch (main) — base_branches adds dev, which is where our PRs go.
+language: "en-US"
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "dev"
+  path_instructions:
+    - path: "src/**/Data/**"
+      instructions: >-
+        Raw SQL must be parameterised (MySqlCommand parameters, or EF Core FromSql
+        with interpolation instead of FromSqlRaw with string building).
+    - path: "src/**/Events/**"
+      instructions: >-
+        Kafka consumer: commit offsets only after a message is handled, don't let
+        one bad message crash the background service, and never log connection
+        strings or SASL passwords.
+    - path: "src/**/Services/**"
+      instructions: >-
+        Push and email senders must not log device tokens, credentials or personal
+        data from message bodies. External calls need timeouts and retries.
+    - path: "src/**/Controllers/**"
+      instructions: >-
+        Controllers handle HTTP only. Validate input and return proper status codes;
+        business logic belongs in Services.
+    - path: "tests/**"
+      instructions: >-
+        Check that tests assert real behaviour and cover edge cases (missing device
+        token, duplicate events), not just that the code runs.
