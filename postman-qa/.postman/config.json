@@ -1,0 +1,15 @@
+{
+  "workspace": {
+    "id": "663e28c8-31b7-4982-8b1d-450994188a03"
+  },
+  "entities": {
+    "environments": [],
+    "flows": [],
+    "globals": [],
+    "mocks": [],
+    "specs": [],
+    "collections": [
+      "..\\GoRide-Notification-SCRUM132.postman_collection.json"
+    ]
+  }
+}

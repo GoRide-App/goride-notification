@@ -1,0 +1,838 @@
+{
+  "info": {
+    "_postman_id": "41b5ebdc-c376-4255-8fcf-ed8bb16f9f62",
+    "name": "GoRide Notification — SCRUM-132 (Payment Confirmation)",
+    "description": "Regression pack for goride-notification, branch SCRUM-132-payment-confirmation-notification. Covers all four HTTP endpoints found in the controllers: /health, /api/notifications/device-token, and the three /api/notifications/trip/* triggers (driver-arrived, completed, payment-confirmed — the SCRUM-132 story itself). No auth header is required; none of these controllers carry an [Authorize] attribute. Import this file plus set the baseUrl variable, then Run collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 Health",
+      "item": [
+        {
+          "name": "GET /health — service and DB are up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is healthy', () => pm.expect(body.status).to.eql('healthy'));"
+                ]
+              }
+            }
+          ],
+          "id": "83d68c58-c899-44c0-a1ee-3367f143f02a",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "9e76ba6d-0fa1-4373-b043-a0b3ca450aa1"
+    },
+    {
+      "name": "Device Token",
+      "item": [
+        {
+          "name": "Register device token — happy path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is success', () => pm.expect(body.status).to.eql('success'));"
+                ]
+              }
+            }
+          ],
+          "id": "4442f2f5-ceb6-40d9-9c78-275102fd9eef",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"token\": \"fcm-test-token-abc123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Re-register same token — should update, not duplicate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 on second registration of the same token', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "id": "8f83df04-2700-4bab-9516-cde03e34605f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"token\": \"fcm-test-token-abc123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register device token — missing riderId is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "8e34fb8c-2b26-4719-8ac2-7cfaafbf20e8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm-test-token-abc123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register device token — missing token is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "9a178fb1-b8b5-4c51-ba02-38810b00c03b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"{{riderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "f1819f9a-4d02-494b-b478-355da5cc4fe5"
+    },
+    {
+      "name": "Trip Notifications — Driver Arrived",
+      "item": [
+        {
+          "name": "Driver arrived — valid state DRIVER_ASSIGNED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is DRIVER_ARRIVED', () => pm.expect(body.status).to.eql('DRIVER_ARRIVED'));",
+                  "pm.test('nextState is DRIVER_ARRIVED', () => pm.expect(body.nextState).to.eql('DRIVER_ARRIVED'));"
+                ]
+              }
+            }
+          ],
+          "id": "0d20739c-9e1e-4eff-a9f5-82e1f86f2068",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"driverName\": \"Nimal Perera\",\n  \"vehicleType\": \"TUKTUK\",\n  \"vehiclePlate\": \"CAB-1234\",\n  \"currentState\": \"DRIVER_ASSIGNED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver-arrived",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "driver-arrived"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver arrived — invalid state is rejected (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is Conflict', () => pm.expect(body.status).to.eql('Conflict'));"
+                ]
+              }
+            }
+          ],
+          "id": "9026423e-1cf5-400d-9eed-36ab373a79a5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"currentState\": \"TRIP_IN_PROGRESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver-arrived",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "driver-arrived"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver arrived — missing tripId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "d97114bc-0056-434c-bfb4-d92a79d71b41",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"currentState\": \"DRIVER_ASSIGNED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver-arrived",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "driver-arrived"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver arrived — missing currentState is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "78ac2453-3d57-48bb-966a-984ec0fe2796",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver-arrived",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "driver-arrived"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "f7602f63-59c4-413b-b925-d20f64dc550a"
+    },
+    {
+      "name": "Trip Notifications — Completed",
+      "item": [
+        {
+          "name": "Trip completed — valid state PAID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is TRIP_COMPLETED', () => pm.expect(body.status).to.eql('TRIP_COMPLETED'));"
+                ]
+              }
+            }
+          ],
+          "id": "f34ab45a-587b-499b-8d77-a839bd7f66f9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"driverName\": \"Nimal Perera\",\n  \"vehicleType\": \"TUKTUK\",\n  \"vehiclePlate\": \"CAB-1234\",\n  \"fare\": 570.15,\n  \"currentState\": \"PAID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/completed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "completed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip completed — invalid state is rejected (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 409 (DRIVER_ASSIGNED is not a valid prior state for completion)', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "id": "22abb8d1-df1a-4ca5-8ddd-592a99a7aecf",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"currentState\": \"DRIVER_ASSIGNED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/completed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "completed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trip completed — missing riderId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "5a897041-4bf3-4f81-b7b3-6924fd02f6aa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"currentState\": \"PAID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/completed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "completed"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "7d39727c-fd56-44a7-bcb2-3fcc443acf8a"
+    },
+    {
+      "name": "Trip Notifications — Payment Confirmed (SCRUM-132)",
+      "item": [
+        {
+          "name": "Payment confirmed — happy path, push + email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is PAYMENT_CONFIRMED', () => pm.expect(body.status).to.eql('PAYMENT_CONFIRMED'));",
+                  "pm.test('channels includes push and email', () => {",
+                  "  pm.expect(body.channels).to.include('push');",
+                  "  pm.expect(body.channels).to.include('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "id": "56c874d2-c8cb-4f75-b68d-ca91d40509da",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"fare\": 570.15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/payment-confirmed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "payment-confirmed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment confirmed — fare omitted (optional field, should still succeed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 even without fare (fare has no [Required] attribute)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "id": "f1b83893-0a4d-4804-90c5-c29636b9ed5a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/payment-confirmed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "payment-confirmed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment confirmed — custom eventId is accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "id": "1a3aa117-347d-4e8b-9af0-2193d3a958c2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"qa-fixed-event-001\",\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"fare\": 250.00\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/payment-confirmed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "payment-confirmed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment confirmed — missing tripId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "71da4ad3-934a-4667-acef-6f830e8b74ea",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"riderId\": \"{{riderId}}\",\n  \"fare\": 570.15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/payment-confirmed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "payment-confirmed"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment confirmed — missing riderId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "id": "975f1f74-fe0e-48c2-9c5b-fb93abd7e959",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"fare\": 570.15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/payment-confirmed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "trip",
+                "payment-confirmed"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "d9cc9175-4634-4615-99d1-a365d78babd6"
+    }
+  ],
+  "variable": [
+    {
+      "id": "c4b76ad1-55db-4b9c-bb04-330af40e1457",
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "id": "e0b26f34-28da-413a-a324-a5ce55b99b94",
+      "key": "riderId",
+      "value": "qa-rider-001",
+      "type": "string"
+    },
+    {
+      "id": "9686dfd9-2137-4880-9ac8-e89a6fde16f5",
+      "key": "tripId",
+      "value": "qa-trip-001",
+      "type": "string"
+    }
+  ]
+}
