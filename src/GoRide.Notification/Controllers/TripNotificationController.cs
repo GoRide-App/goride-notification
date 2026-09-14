@@ -189,6 +189,168 @@ public class TripNotificationController : ControllerBase
             channels = new[] { "push", "email" }
         });
     }
+
+    /// <summary>
+    /// Triggers immediate push and email notification to driver for an assigned/incoming ride request.
+    /// SCRUM-130: Immediate push of ride/booking changes to driver.
+    /// </summary>
+    /// <param name="request">Driver ride request notification payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("driver/ride-request")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> TriggerDriverRideRequest([FromBody] DriverRideRequestNotificationRequest request, CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var evt = new TripEvent
+        {
+            EventId = string.IsNullOrWhiteSpace(request.EventId) ? $"evt-driver-req-{Guid.NewGuid():N}" : request.EventId,
+            EventType = "RIDE_REQUESTED",
+            TripId = request.TripId,
+            DriverId = request.DriverId,
+            RiderId = request.RiderId ?? "rider-system",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                PickupLocation = request.PickupLocation ?? "Pickup location",
+                DropoffLocation = request.DropoffLocation,
+                Fare = request.Fare
+            }
+        };
+
+        await _dispatcher.DispatchRideRequestToDriver(evt, ct);
+
+        return Ok(new
+        {
+            status = "RIDE_REQUESTED",
+            message = "Immediate driver ride request notification dispatched successfully",
+            tripId = request.TripId,
+            driverId = request.DriverId,
+            channels = new[] { "push", "email" }
+        });
+    }
+
+    /// <summary>
+    /// Triggers immediate push and email notification to driver when a booking or trip is updated/cancelled.
+    /// SCRUM-130: Immediate push of ride/booking changes to driver.
+    /// </summary>
+    /// <param name="request">Driver booking change notification payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpPost("driver/booking-change")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> TriggerDriverBookingChange([FromBody] DriverBookingChangeNotificationRequest request, CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var evt = new TripEvent
+        {
+            EventId = string.IsNullOrWhiteSpace(request.EventId) ? $"evt-driver-change-{Guid.NewGuid():N}" : request.EventId,
+            EventType = "BOOKING_CHANGED",
+            TripId = request.TripId,
+            DriverId = request.DriverId,
+            RiderId = request.RiderId ?? "rider-system",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                ChangeReason = request.ChangeReason ?? "Booking details updated"
+            }
+        };
+
+        await _dispatcher.DispatchBookingChangeToDriver(evt, ct);
+
+        return Ok(new
+        {
+            status = "BOOKING_CHANGED",
+            message = "Driver booking change notification dispatched successfully",
+            tripId = request.TripId,
+            driverId = request.DriverId,
+            channels = new[] { "push", "email" }
+        });
+    }
+}
+
+/// <summary>
+/// Request DTO for triggering driver ride request notification.
+/// </summary>
+public class DriverRideRequestNotificationRequest
+{
+    /// <summary>
+    /// Event identifier (optional, auto-generated if omitted).
+    /// </summary>
+    public string? EventId { get; set; }
+
+    /// <summary>
+    /// Unique trip identifier.
+    /// </summary>
+    [Required]
+    public string TripId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique driver identifier receiving the notification.
+    /// </summary>
+    [Required]
+    public string DriverId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique rider identifier (optional).
+    /// </summary>
+    public string? RiderId { get; set; }
+
+    /// <summary>
+    /// Pickup location address or landmark.
+    /// </summary>
+    public string? PickupLocation { get; set; }
+
+    /// <summary>
+    /// Dropoff location address or landmark.
+    /// </summary>
+    public string? DropoffLocation { get; set; }
+
+    /// <summary>
+    /// Estimated fare for the trip.
+    /// </summary>
+    public decimal? Fare { get; set; }
+}
+
+/// <summary>
+/// Request DTO for triggering driver booking change notification.
+/// </summary>
+public class DriverBookingChangeNotificationRequest
+{
+    /// <summary>
+    /// Event identifier (optional, auto-generated if omitted).
+    /// </summary>
+    public string? EventId { get; set; }
+
+    /// <summary>
+    /// Unique trip identifier.
+    /// </summary>
+    [Required]
+    public string TripId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique driver identifier receiving the notification.
+    /// </summary>
+    [Required]
+    public string DriverId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique rider identifier (optional).
+    /// </summary>
+    public string? RiderId { get; set; }
+
+    /// <summary>
+    /// Reason or details of the booking change or cancellation.
+    /// </summary>
+    public string? ChangeReason { get; set; }
 }
 
 /// <summary>

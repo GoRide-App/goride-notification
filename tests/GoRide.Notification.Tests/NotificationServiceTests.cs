@@ -444,4 +444,190 @@ public class NotificationServiceTests
         // Assert
         Assert.True(isAlreadyProcessed);
     }
+
+    [Fact]
+    public async Task NotificationDispatcher_DispatchRideRequestToDriver_SendsPushAndEmail_Scenario1AndBothDefaultChannels()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        db.NotificationPreferences.Add(new NotificationPreference
+        {
+            RiderId = "driver-101",
+            PushEnabled = true,
+            EmailEnabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var emailSender = new SmtpEmailSender(new ConfigurationBuilder().Build(), NullLogger<SmtpEmailSender>.Instance);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance,
+            emailSender);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-driver-req-101",
+            EventType = "RIDE_REQUESTED",
+            TripId = "trip-driver-101",
+            DriverId = "driver-101",
+            RiderId = "rider-101",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload
+            {
+                PickupLocation = "Colombo Fort",
+                DropoffLocation = "Kollupitiya",
+                Fare = 450.00m
+            }
+        };
+
+        // Act
+        await dispatcher.DispatchRideRequestToDriver(evt, CancellationToken.None);
+
+        // Assert
+        var logs = await db.NotificationLogs.Where(l => l.EventId == "evt-driver-req-101").ToListAsync();
+        Assert.Equal(2, logs.Count);
+        Assert.Contains(logs, l => l.Channel == "push" && l.Status == "sent" && l.RiderId == "driver-101");
+        Assert.Contains(logs, l => l.Channel == "email" && l.Status == "sent" && l.RiderId == "driver-101");
+    }
+
+    [Fact]
+    public async Task NotificationDispatcher_DispatchRideRequestToDriver_SkipsDisabledChannels_Scenario2()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        db.NotificationPreferences.Add(new NotificationPreference
+        {
+            RiderId = "driver-off-1",
+            PushEnabled = false,
+            EmailEnabled = false
+        });
+        await db.SaveChangesAsync();
+
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-driver-req-off",
+            EventType = "RIDE_REQUESTED",
+            TripId = "trip-driver-off",
+            DriverId = "driver-off-1",
+            RiderId = "rider-off-1",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload { PickupLocation = "Galle Face" }
+        };
+
+        // Act
+        await dispatcher.DispatchRideRequestToDriver(evt, CancellationToken.None);
+
+        // Assert
+        var logs = await db.NotificationLogs.Where(l => l.EventId == "evt-driver-req-off").ToListAsync();
+        Assert.Equal(2, logs.Count);
+        Assert.All(logs, l => Assert.Equal("skipped", l.Status));
+    }
+
+    [Fact]
+    public async Task NotificationDispatcher_DispatchBookingChangeToDriver_SendsPushAndLogsDeliveryOutcome_Scenario1()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var evt = new TripEvent
+        {
+            EventId = "evt-booking-change-1",
+            EventType = "BOOKING_CHANGED",
+            TripId = "trip-change-1",
+            DriverId = "driver-202",
+            RiderId = "rider-202",
+            OccurredAt = DateTime.UtcNow,
+            Payload = new TripEventPayload { ChangeReason = "Rider changed destination to Dehiwala" }
+        };
+
+        // Act
+        await dispatcher.DispatchBookingChangeToDriver(evt, CancellationToken.None);
+
+        // Assert
+        var log = await db.NotificationLogs.FirstOrDefaultAsync(l => l.EventId == "evt-booking-change-1");
+        Assert.NotNull(log);
+        Assert.Equal("driver-202", log.RiderId);
+        Assert.Equal("push", log.Channel);
+        Assert.Equal("sent", log.Status);
+    }
+
+    [Fact]
+    public async Task TripNotificationController_TriggerDriverRideRequest_ReturnsOk()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var controller = new TripNotificationController(dispatcher, NullLogger<TripNotificationController>.Instance);
+
+        var request = new DriverRideRequestNotificationRequest
+        {
+            TripId = "trip-ctrl-driver-1",
+            DriverId = "driver-ctrl-1",
+            PickupLocation = "Bambalapitiya",
+            Fare = 350.00m
+        };
+
+        // Act
+        var result = await controller.TriggerDriverRideRequest(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task TripNotificationController_TriggerDriverBookingChange_ReturnsOk()
+    {
+        // Arrange
+        using var db = CreateInMemoryDbContext(Guid.NewGuid().ToString());
+        var preferenceService = new PreferenceService(db);
+        var pushSender = new FcmPushSender(db, NullLogger<FcmPushSender>.Instance, messaging: null);
+        var dispatcher = new NotificationDispatcher(
+            preferenceService,
+            pushSender,
+            db,
+            NullLogger<NotificationDispatcher>.Instance);
+
+        var controller = new TripNotificationController(dispatcher, NullLogger<TripNotificationController>.Instance);
+
+        var request = new DriverBookingChangeNotificationRequest
+        {
+            TripId = "trip-ctrl-change-1",
+            DriverId = "driver-ctrl-1",
+            ChangeReason = "Trip cancelled by rider"
+        };
+
+        // Act
+        var result = await controller.TriggerDriverBookingChange(request);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+    }
 }

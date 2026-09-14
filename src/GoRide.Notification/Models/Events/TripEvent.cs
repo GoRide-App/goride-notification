@@ -26,10 +26,16 @@ public class TripEvent
     public string TripId { get; set; } = default!;
 
     /// <summary>
-    /// Unique rider identifier receiving notification.
+    /// Unique rider identifier receiving notification (optional if notification is targeted to driver).
     /// </summary>
     [JsonPropertyName("riderId")]
     public string RiderId { get; set; } = default!;
+
+    /// <summary>
+    /// Unique driver identifier receiving notification (optional if notification is targeted to rider).
+    /// </summary>
+    [JsonPropertyName("driverId")]
+    public string? DriverId { get; set; }
 
     /// <summary>
     /// Timestamp when the event occurred.
@@ -78,4 +84,22 @@ public class TripEventPayload
     /// </summary>
     [JsonPropertyName("fare")]
     public decimal? Fare { get; set; }
+
+    /// <summary>
+    /// Pickup location address or landmark.
+    /// </summary>
+    [JsonPropertyName("pickupLocation")]
+    public string? PickupLocation { get; set; }
+
+    /// <summary>
+    /// Dropoff location address or landmark.
+    /// </summary>
+    [JsonPropertyName("dropoffLocation")]
+    public string? DropoffLocation { get; set; }
+
+    /// <summary>
+    /// Reason or details for booking/trip change.
+    /// </summary>
+    [JsonPropertyName("changeReason")]
+    public string? ChangeReason { get; set; }
 }

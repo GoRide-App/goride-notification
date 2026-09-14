@@ -35,6 +35,20 @@ public interface INotificationDispatcher
     /// <param name="evt">The PAYMENT_CONFIRMED domain event payload.</param>
     /// <param name="ct">Cancellation token.</param>
     Task DispatchPaymentConfirmation(TripEvent evt, CancellationToken ct);
+
+    /// <summary>
+    /// Dispatches an immediate push/email notification to driver when a new ride request is assigned/dispatched.
+    /// </summary>
+    /// <param name="evt">The RIDE_REQUESTED domain event payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task DispatchRideRequestToDriver(TripEvent evt, CancellationToken ct);
+
+    /// <summary>
+    /// Dispatches an immediate push/email notification to driver when a booking or trip details are updated/cancelled.
+    /// </summary>
+    /// <param name="evt">The BOOKING_CHANGED domain event payload.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task DispatchBookingChangeToDriver(TripEvent evt, CancellationToken ct);
 }
 
 /// <summary>
