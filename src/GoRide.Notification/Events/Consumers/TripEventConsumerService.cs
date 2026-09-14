@@ -80,9 +80,11 @@ public class TripEventConsumerService : BackgroundService
                     bool isDriverArrived = string.Equals(evt.EventType, "DRIVER_ARRIVED", StringComparison.OrdinalIgnoreCase);
                     bool isTripCompleted = string.Equals(evt.EventType, "TRIP_COMPLETED", StringComparison.OrdinalIgnoreCase);
                     bool isPaymentConfirmed = string.Equals(evt.EventType, "PAYMENT_CONFIRMED", StringComparison.OrdinalIgnoreCase) || string.Equals(evt.EventType, "PAYMENT_SUCCESS", StringComparison.OrdinalIgnoreCase);
+                    bool isRideRequested = string.Equals(evt.EventType, "RIDE_REQUESTED", StringComparison.OrdinalIgnoreCase) || string.Equals(evt.EventType, "TRIP_REQUESTED", StringComparison.OrdinalIgnoreCase);
+                    bool isBookingChanged = string.Equals(evt.EventType, "BOOKING_CHANGED", StringComparison.OrdinalIgnoreCase) || string.Equals(evt.EventType, "TRIP_CANCELLED", StringComparison.OrdinalIgnoreCase);
 
                     // Only handle supported trip notification events
-                    if (!isDriverAccepted && !isDriverArrived && !isTripCompleted && !isPaymentConfirmed)
+                    if (!isDriverAccepted && !isDriverArrived && !isTripCompleted && !isPaymentConfirmed && !isRideRequested && !isBookingChanged)
                     {
                         _consumer.Commit(result);
                         continue;
@@ -100,7 +102,7 @@ public class TripEventConsumerService : BackgroundService
                         continue;
                     }
 
-                    // Dispatch notification to rider based on event type
+                    // Dispatch notification to recipient based on event type
                     var dispatcher = scope.ServiceProvider.GetRequiredService<INotificationDispatcher>();
                     if (isDriverAccepted)
                     {
@@ -117,6 +119,14 @@ public class TripEventConsumerService : BackgroundService
                     else if (isPaymentConfirmed)
                     {
                         await dispatcher.DispatchPaymentConfirmation(evt, stoppingToken);
+                    }
+                    else if (isRideRequested)
+                    {
+                        await dispatcher.DispatchRideRequestToDriver(evt, stoppingToken);
+                    }
+                    else if (isBookingChanged)
+                    {
+                        await dispatcher.DispatchBookingChangeToDriver(evt, stoppingToken);
                     }
 
                     // Mark event as processed

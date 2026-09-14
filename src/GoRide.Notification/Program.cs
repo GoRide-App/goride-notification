@@ -71,9 +71,9 @@ if (!origins.Contains("http://localhost:3000", StringComparer.OrdinalIgnoreCase)
 {
     origins.Add("http://localhost:3000");
 }
-if (!origins.Contains("http://127.0.0.1:3000", StringComparer.OrdinalIgnoreCase))
+if (!origins.Contains("http://localhost:3000", StringComparer.OrdinalIgnoreCase))
 {
-    origins.Add("http://127.0.0.1:3000");
+    origins.Add("http://localhost:3000");
 }
 
 builder.Services.AddCors(options =>
