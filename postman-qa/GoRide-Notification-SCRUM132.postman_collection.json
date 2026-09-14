@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "41b5ebdc-c376-4255-8fcf-ed8bb16f9f62",
-    "name": "GoRide Notification — SCRUM-132 (Payment Confirmation)",
-    "description": "Regression pack for goride-notification, branch SCRUM-132-payment-confirmation-notification. Covers all four HTTP endpoints found in the controllers: /health, /api/notifications/device-token, and the three /api/notifications/trip/* triggers (driver-arrived, completed, payment-confirmed — the SCRUM-132 story itself). No auth header is required; none of these controllers carry an [Authorize] attribute. Import this file plus set the baseUrl variable, then Run collection.",
+    "name": "GoRide Notification — Trip Notification Triggers (QA-test branch)",
+    "description": "Regression pack for goride-notification, QA-test branch. Covers /health, /api/notifications/device-token, and all five /api/notifications/trip/* triggers: driver-arrived (SCRUM-128), completed (SCRUM-129), payment-confirmed (SCRUM-132), and the two driver-facing endpoints added under SCRUM-130 — driver/ride-request and driver/booking-change. No auth header is required; none of these controllers carry an [Authorize] attribute. Import this file plus set the baseUrl/riderId/tripId/driverId variables, then Run collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -813,6 +813,273 @@
         }
       ],
       "id": "d9cc9175-4634-4615-99d1-a365d78babd6"
+    },
+    {
+      "name": "Trip Notifications — Driver (SCRUM-130)",
+      "item": [
+        {
+          "name": "Driver ride request — happy path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is RIDE_REQUESTED', () => pm.expect(body.status).to.eql('RIDE_REQUESTED'));",
+                  "pm.test('driverId echoed back matches request', () => pm.expect(body.driverId).to.eql(pm.collectionVariables.get('driverId')));",
+                  "pm.test('channels includes push and email', () => {",
+                  "  pm.expect(body.channels).to.include('push');",
+                  "  pm.expect(body.channels).to.include('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"pickupLocation\": \"Colombo Fort Railway Station\",\n  \"dropoffLocation\": \"Bambalapitiya\",\n  \"fare\": 480.00\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/ride-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "ride-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver ride request — riderId omitted (optional field, should still succeed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 without riderId (DriverRideRequestNotificationRequest.RiderId has no [Required])', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"pickupLocation\": \"Colombo Fort Railway Station\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/ride-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "ride-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver ride request — missing driverId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"pickupLocation\": \"Colombo Fort Railway Station\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/ride-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "ride-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver ride request — missing tripId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"riderId\": \"{{riderId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/ride-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "ride-request"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver booking change — happy path",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status is BOOKING_CHANGED', () => pm.expect(body.status).to.eql('BOOKING_CHANGED'));",
+                  "pm.test('driverId echoed back matches request', () => pm.expect(body.driverId).to.eql(pm.collectionVariables.get('driverId')));",
+                  "pm.test('channels includes push and email', () => {",
+                  "  pm.expect(body.channels).to.include('push');",
+                  "  pm.expect(body.channels).to.include('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"driverId\": \"{{driverId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"changeReason\": \"Rider changed the dropoff location\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/booking-change",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "booking-change"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver booking change — changeReason omitted (optional, defaults server-side)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 without changeReason (defaults to \"Trip details updated by rider\" server-side)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"driverId\": \"{{driverId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/booking-change",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "booking-change"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver booking change — missing driverId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tripId\": \"{{tripId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"changeReason\": \"Rider changed the dropoff location\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/booking-change",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "booking-change"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver booking change — missing tripId is refused (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driverId\": \"{{driverId}}\",\n  \"riderId\": \"{{riderId}}\",\n  \"changeReason\": \"Rider changed the dropoff location\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/trip/driver/booking-change",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications", "trip", "driver", "booking-change"]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -832,6 +1099,11 @@
       "id": "9686dfd9-2137-4880-9ac8-e89a6fde16f5",
       "key": "tripId",
       "value": "qa-trip-001",
+      "type": "string"
+    },
+    {
+      "key": "driverId",
+      "value": "qa-driver-001",
       "type": "string"
     }
   ]
