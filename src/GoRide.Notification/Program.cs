@@ -2,6 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using GoRide.Notification.Data;
 using GoRide.Notification.Events.Consumers;
 using GoRide.Notification.Services;
+using FirebaseAdmin;
+using FirebaseAdmin.Messaging;
+using Google.Apis.Auth.OAuth2;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +13,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// ---- Firebase Initialization ----
+var firebaseCredPath = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrEmpty(firebaseCredPath) && File.Exists(firebaseCredPath))
+{
+    FirebaseApp.Create(new AppOptions()
+    {
+        Credential = GoogleCredential.FromFile(firebaseCredPath)
+    });
+    
+    // Register the default messaging instance as a Singleton
+    builder.Services.AddSingleton(FirebaseMessaging.DefaultInstance);
+}
+
 
 // ---- Database (ADO.NET connection factory + Entity Framework Core DbContext) ----
 builder.Services.AddScoped<IDbConnectionFactory, MySqlConnectionFactory>();
