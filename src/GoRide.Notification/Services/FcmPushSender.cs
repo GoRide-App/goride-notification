@@ -46,17 +46,32 @@ public class FcmPushSender : IPushSender
         {
             if (_messaging != null)
             {
-                await _messaging.SendAsync(new Message
+                try
                 {
-                    Token = token,
-                    Notification = new FirebaseAdmin.Messaging.Notification
+                    await _messaging.SendAsync(new Message
                     {
-                        Title = title,
-                        Body = body
-                    }
-                }, ct);
+                        Token = token,
+                        Notification = new FirebaseAdmin.Messaging.Notification
+                        {
+                            Title = title,
+                            Body = body
+                        }
+                    }, ct);
 
-                _logger.LogInformation("FCM Push notification sent to token {Token} for rider {RiderId}", token, riderId);
+                    _logger.LogInformation("FCM Push notification sent to token {Token} for rider {RiderId}", token, riderId);
+                }
+                catch (FirebaseMessagingException ex) when (ex.MessagingErrorCode == MessagingErrorCode.Unregistered)
+                {
+                    _logger.LogWarning("Token {Token} for rider {RiderId} is unregistered. Removing from database.", token, riderId);
+                    
+                    // Remove the stale token from the DB
+                    var staleToken = await _db.DeviceTokens.FirstOrDefaultAsync(t => t.Token == token && t.RiderId == riderId, ct);
+                    if (staleToken != null)
+                    {
+                        _db.DeviceTokens.Remove(staleToken);
+                        await _db.SaveChangesAsync(ct);
+                    }
+                }
             }
             else
             {
