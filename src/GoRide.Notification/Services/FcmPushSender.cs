@@ -63,7 +63,7 @@ public class FcmPushSender : IPushSender
                 catch (FirebaseMessagingException ex) when (ex.MessagingErrorCode == MessagingErrorCode.Unregistered)
                 {
                     _logger.LogWarning("Token {Token} for rider {RiderId} is unregistered. Removing from database.", token, riderId);
-                    
+
                     // Remove the stale token from the DB
                     var staleToken = await _db.DeviceTokens.FirstOrDefaultAsync(t => t.Token == token && t.RiderId == riderId, ct);
                     if (staleToken != null)

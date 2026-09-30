@@ -22,7 +22,7 @@ if (!string.IsNullOrEmpty(firebaseCredPath) && File.Exists(firebaseCredPath))
     {
         Credential = GoogleCredential.FromFile(firebaseCredPath)
     });
-    
+
     // Register the default messaging instance as a Singleton
     builder.Services.AddSingleton(FirebaseMessaging.DefaultInstance);
 }
