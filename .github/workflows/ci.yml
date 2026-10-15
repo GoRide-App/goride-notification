@@ -1,0 +1,24 @@
+name: CI
+
+# Runs on every PR into dev/main and on direct pushes to those branches.
+# The actual steps live in ci-reusable.yml so cd.yml can run the exact same
+# checks before it deploys anything.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci-reusable.yml
